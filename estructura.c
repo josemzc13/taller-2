@@ -2,18 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_COMPONENTES 10
+#define MAX_COMPONENTES 15
 #define MAX_ORDENES 100
 #define MAX_PRODUCTOS 5
+#define MAX_NOMBRE 50
 
-// Estructuras para organizar datos
 typedef struct {
-    char nombre[50];
-    int stock;
+    char nombre[MAX_NOMBRE];
+    int cantidad;
 } Componente;
 
 typedef struct {
-    char nombre[50];
+    char nombre[MAX_NOMBRE];
     int componentesNecesarios[MAX_COMPONENTES];
 } Producto;
 
@@ -21,10 +21,9 @@ typedef struct {
     int id;
     int idProducto;
     int cantidad;
-    int tiempoTotal;
+    int tiempoPreparacion;
 } Orden;
 
-// Variables globales
 Componente componentes[MAX_COMPONENTES] = {
     {"Resistencias", 1000},
     {"Condensadores", 500},
@@ -48,8 +47,37 @@ Producto productos[MAX_PRODUCTOS] = {
 
 Orden ordenes[MAX_ORDENES];
 int totalOrdenes = 0;
+int totalComponentes = 10;
 
-// Funciones para guardar y cargar datos desde archivos
+void agregarComponente() {
+    if (totalComponentes >= MAX_COMPONENTES) {
+        printf("No se pueden agregar mas componentes. Capacidad maxima alcanzada.\n");
+        return;
+    }
+
+    Componente nuevoComponente;
+    printf("Ingrese el nombre del nuevo componente: ");
+    getchar();
+    fgets(nuevoComponente.nombre, MAX_NOMBRE, stdin);
+    nuevoComponente.nombre[strcspn(nuevoComponente.nombre, "\n")] = '\0';
+
+    printf("Ingrese la cantidad inicial en inventario: ");
+    scanf("%d", &nuevoComponente.cantidad);
+
+    if (nuevoComponente.cantidad < 0) {
+        printf("La cantidad inicial no puede ser negativa.\n");
+        return;
+    }
+
+    componentes[totalComponentes] = nuevoComponente;
+    for (int i = 0; i < MAX_PRODUCTOS; i++) {
+        productos[i].componentesNecesarios[totalComponentes] = 0;
+    }
+
+    totalComponentes++;
+    printf("Componente agregado correctamente. Nuevo total de componentes: %d\n", totalComponentes);
+}
+
 void guardarInventario() {
     FILE *archivo = fopen("inventario.txt", "w");
     if (!archivo) {
@@ -57,8 +85,8 @@ void guardarInventario() {
         return;
     }
 
-    for (int i = 0; i < MAX_COMPONENTES; i++) {
-        fprintf(archivo, "%d\n", componentes[i].stock);
+    for (int i = 0; i < totalComponentes; i++) {
+        fprintf(archivo, "%s %d\n", componentes[i].nombre, componentes[i].cantidad);
     }
 
     fclose(archivo);
@@ -71,56 +99,27 @@ void cargarInventario() {
         return;
     }
 
-    for (int i = 0; i < MAX_COMPONENTES; i++) {
-        fscanf(archivo, "%d", &componentes[i].stock);
+    totalComponentes = 0;
+    while (fscanf(archivo, "%s %d", componentes[totalComponentes].nombre, &componentes[totalComponentes].cantidad) != EOF) {
+        totalComponentes++;
     }
 
     fclose(archivo);
 }
 
-void guardarOrdenes() {
-    FILE *archivo = fopen("ordenes.txt", "w");
-    if (!archivo) {
-        printf("No se pudo abrir el archivo de ordenes.\n");
-        return;
-    }
-
-    for (int i = 0; i < totalOrdenes; i++) {
-        fprintf(archivo, "%d %d %d %d\n", ordenes[i].id, ordenes[i].idProducto, ordenes[i].cantidad, ordenes[i].tiempoTotal);
-    }
-
-    fclose(archivo);
-}
-
-void cargarOrdenes() {
-    FILE *archivo = fopen("ordenes.txt", "r");
-    if (!archivo) {
-        printf("No se pudo abrir el archivo de ordenes.\n");
-        return;
-    }
-
-    while (fscanf(archivo, "%d %d %d %d", &ordenes[totalOrdenes].id, &ordenes[totalOrdenes].idProducto, &ordenes[totalOrdenes].cantidad, &ordenes[totalOrdenes].tiempoTotal) != EOF) {
-        totalOrdenes++;
-    }
-
-    fclose(archivo);
-}
-
-// Mostrar inventario
 void mostrarInventario() {
     printf("\n--- Inventario ---\n");
-    for (int i = 0; i < MAX_COMPONENTES; i++) {
-        printf("Componente: %s, Stock: %d\n", componentes[i].nombre, componentes[i].stock);
+    for (int i = 0; i < totalComponentes; i++) {
+        printf("Componente: %s, Stock: %d\n", componentes[i].nombre, componentes[i].cantidad);
     }
 }
 
-// Mostrar productos ofertados
 void mostrarProductosOfertados() {
     printf("\n--- Productos Ofertados ---\n");
     for (int i = 0; i < MAX_PRODUCTOS; i++) {
         printf("Producto: %s\n", productos[i].nombre);
         printf("Componentes necesarios:\n");
-        for (int j = 0; j < MAX_COMPONENTES; j++) {
+        for (int j = 0; j < totalComponentes; j++) {
             if (productos[i].componentesNecesarios[j] > 0) {
                 printf("- %s: %d\n", componentes[j].nombre, productos[i].componentesNecesarios[j]);
             }
@@ -129,32 +128,18 @@ void mostrarProductosOfertados() {
     }
 }
 
-// Modificar stock de componentes
-void modificarStock() {
-    int id, nuevoStock;
-    printf("Ingrese el ID del componente a modificar (1-10): ");
-    scanf("%d", &id);
-    if (id < 1 || id > MAX_COMPONENTES) {
-        printf("ID invalido.\n");
+void ingresarOrden() {
+    if (totalOrdenes >= MAX_ORDENES) {
+        printf("No se pueden agregar mas ordenes. Capacidad maxima alcanzada.\n");
         return;
     }
 
-    printf("Componente seleccionado: %s\n", componentes[id - 1].nombre);
-    printf("Ingrese la nueva cantidad en stock: ");
-    scanf("%d", &nuevoStock);
-   
-    componentes[id - 1].stock = nuevoStock;
-    printf("Stock actualizado correctamente.\n");
-}
-
-// Ingresar una nueva orden
-void ingresarOrden() {
     int idProductoSeleccionado, cantidadSeleccionada;
-    printf("Ingrese el ID del producto a pedir (1-5): ");
+    printf("Ingrese el Codigo del producto a pedir (1-%d): ", MAX_PRODUCTOS);
     scanf("%d", &idProductoSeleccionado);
 
     if (idProductoSeleccionado < 1 || idProductoSeleccionado > MAX_PRODUCTOS) {
-        printf("ID de producto invalido.\n");
+        printf("Codigo de producto invalido.\n");
         return;
     }
 
@@ -162,95 +147,78 @@ void ingresarOrden() {
     printf("Ingrese la cantidad deseada: ");
     scanf("%d", &cantidadSeleccionada);
 
-    // Verificar si se puede realizar la orden
-    for (int i = 0; i < MAX_COMPONENTES; i++) {
-        if (productos[idProductoSeleccionado - 1].componentesNecesarios[i] * cantidadSeleccionada > componentes[i].stock) {
+    for (int i = 0; i < totalComponentes; i++) {
+        if (productos[idProductoSeleccionado - 1].componentesNecesarios[i] * cantidadSeleccionada > componentes[i].cantidad) {
             printf("Orden no procede. Componente insuficiente: %s\n", componentes[i].nombre);
             return;
         }
     }
 
-    // Actualizar inventario y agregar orden
-    for (int i = 0; i < MAX_COMPONENTES; i++) {
-        componentes[i].stock -= productos[idProductoSeleccionado - 1].componentesNecesarios[i] * cantidadSeleccionada;
+    for (int i = 0; i < totalComponentes; i++) {
+        componentes[i].cantidad -= productos[idProductoSeleccionado - 1].componentesNecesarios[i] * cantidadSeleccionada;
     }
 
-    ordenes[totalOrdenes].id = totalOrdenes + 1;
-    ordenes[totalOrdenes].idProducto = idProductoSeleccionado;
-    ordenes[totalOrdenes].cantidad = cantidadSeleccionada;
-    ordenes[totalOrdenes].tiempoTotal = cantidadSeleccionada * 120;  // Tiempo promedio de preparacion
+    ordenes[totalOrdenes] = (Orden){
+        .id = totalOrdenes + 1,
+        .idProducto = idProductoSeleccionado,
+        .cantidad = cantidadSeleccionada,
+        .tiempoPreparacion = cantidadSeleccionada * 120
+    };
 
     totalOrdenes++;
-    printf("Orden ingresada correctamente. Tiempo total de preparacion: %d minutos\n", ordenes[totalOrdenes - 1].tiempoTotal);
+    printf("Orden ingresada correctamente. Tiempo total de preparacion: %d minutos\n", ordenes[totalOrdenes - 1].tiempoPreparacion);
 }
 
-// Mostrar todas las ordenes
 void mostrarOrdenes() {
     printf("\n--- Ordenes de Trabajo ---\n");
     for (int i = 0; i < totalOrdenes; i++) {
-        printf("ID Orden: %d, Producto: %s, Cantidad: %d, Tiempo Total: %d minutos\n",
-               ordenes[i].id,
-               productos[ordenes[i].idProducto - 1].nombre,
-               ordenes[i].cantidad,
-               ordenes[i].tiempoTotal);
+        printf("Orden %d:\n", ordenes[i].id);
+        printf("Producto: %s\n", productos[ordenes[i].idProducto - 1].nombre);
+        printf("Cantidad: %d\n", ordenes[i].cantidad);
+        printf("Tiempo total de preparacion: %d minutos\n", ordenes[i].tiempoPreparacion);
+        printf("\n");
     }
 }
 
-// Buscar una orden por ID
-void buscarOrden() {
-    int id;
-    printf("Ingrese el ID de la orden a buscar: ");
-    scanf("%d", &id);
-
-    for (int i = 0; i < totalOrdenes; i++) {
-        if (ordenes[i].id == id) {
-            printf("Orden encontrada: Producto: %s, Cantidad: %d, Tiempo Total: %d minutos\n",
-                   productos[ordenes[i].idProducto - 1].nombre,
-                   ordenes[i].cantidad,
-                   ordenes[i].tiempoTotal);
-            return;
-        }
-    }
-
-    printf("Orden no encontrada.\n");
-}
-
-// Menu principal
-void menu() {
+int main() {
     int opcion;
+    cargarInventario();
+
     do {
-        printf("\n--- Menu ---\n");
-        printf("1. Mostrar productos ofertados\n");
-        printf("2. Mostrar inventario\n");
-        printf("3. Modificar stock\n");
-        printf("4. Ingresar orden de trabajo\n");
-        printf("5. Mostrar ordenes de trabajo\n");
-        printf("6. Buscar orden\n");
-        printf("7. Guardar y salir\n");
+        printf("\n--- Menu Principal ---\n");
+        printf("1. Mostrar Inventario\n");
+        printf("2. Mostrar Productos Ofertados\n");
+        printf("3. Ingresar Nueva Orden\n");
+        printf("4. Mostrar Ordenes de Trabajo\n");
+        printf("5. Agregar Componente\n");
+        printf("6. Guardar y Salir\n");
         printf("Seleccione una opcion: ");
         scanf("%d", &opcion);
 
         switch (opcion) {
-            case 1: mostrarProductosOfertados(); break;
-            case 2: mostrarInventario(); break;
-            case 3: modificarStock(); break;
-            case 4: ingresarOrden(); break;
-            case 5: mostrarOrdenes(); break;
-            case 6: buscarOrden(); break;
-            case 7:
-                guardarInventario();
-                guardarOrdenes();
-                printf("Datos guardados. Saliendo...\n");
+            case 1:
+                mostrarInventario();
                 break;
-            default: printf("Opcion invalida.\n");
+            case 2:
+                mostrarProductosOfertados();
+                break;
+            case 3:
+                ingresarOrden();
+                break;
+            case 4:
+                mostrarOrdenes();
+                break;
+            case 5:
+                agregarComponente();
+                break;
+            case 6:
+                guardarInventario();
+                printf("Hasta luego.\n");
+                break;
+            default:
+                printf("Opcion invalida. Intente de nuevo.\n");
         }
-    } while (opcion != 7);
-}
+    } while (opcion != 6);
 
-// Funcion principal
-int main() {
-    cargarInventario();
-    cargarOrdenes();
-    menu();
     return 0;
 }
